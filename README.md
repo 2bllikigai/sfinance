@@ -1,6 +1,6 @@
 # 💰 SFINANCE - Smart Personal Finance Manager
 
-**sfinance** là ứng dụng quản lý tài chính cá nhân toàn diện được phát triển bằng framework **Flutter**. Đây là đồ án môn học Lập trình Mobile, tập trung vào trải nghiệm người dùng mượt mà, tính toán chính xác và bảo mật dữ liệu cục bộ.
+**sfinance** là ứng dụng quản lý tài chính cá nhân toàn diện được phát triển bằng framework **Flutter**. Đây là bài tập lớn môn học Lập trình Mobile, tập trung vào trải nghiệm người dùng mượt mà, tính toán chính xác và bảo mật dữ liệu cục bộ.
 
 ---
 
