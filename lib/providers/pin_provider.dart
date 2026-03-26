@@ -1,35 +1,63 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:crypto/crypto.dart'; // Đảm bảo đã thêm package crypto vào pubspec.yaml
 
 class PinProvider with ChangeNotifier {
-  String? _savedPin;
   bool _isLocked = true;
+  bool _hasPin = false;
 
-  String? get savedPin => _savedPin;
   bool get isLocked => _isLocked;
+  bool get hasPin => _hasPin;
 
   PinProvider() {
-    _loadPin();
+    checkPinStatus();
   }
 
-  // Tải mã PIN từ bộ nhớ máy
-  Future<void> _loadPin() async {
+  // 1. Hàm băm mã PIN bằng SHA-256 (Bảo mật cốt lõi)
+  String _hashPin(String pin) {
+    var bytes = utf8.encode(pin); // Chuyển chuỗi thành bytes
+    return sha256.convert(bytes).toString(); // Trả về chuỗi hash
+  }
+
+  // 2. Kiểm tra xem người dùng đã cài mã PIN chưa
+  Future<void> checkPinStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    _savedPin = prefs.getString('user_pin');
+    // Chúng ta chỉ lưu chuỗi đã băm (hash), không lưu PIN gốc
+    String? savedHash = prefs.getString('user_pin_hash');
+    _hasPin = savedHash != null;
     notifyListeners();
   }
 
-  // Cài đặt mã PIN mới (Dành cho lần đầu sử dụng)
+  // 3. Cài đặt mã PIN mới (Dùng cho lần đầu hoặc đổi PIN)
   Future<void> setPin(String pin) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_pin', pin);
-    _savedPin = pin;
+    String hashedPin = _hashPin(pin);
+    await prefs.setString('user_pin_hash', hashedPin);
+    _hasPin = true;
+    _isLocked = false; // Cài xong thì mở khóa luôn
     notifyListeners();
   }
 
-  // Mở khóa app
-  void unlock() {
-    _isLocked = false;
+  // 4. Xác thực mã PIN khi mở App
+  Future<bool> verifyPin(String inputPin) async {
+    final prefs = await SharedPreferences.getInstance();
+    String? savedHash = prefs.getString('user_pin_hash');
+    
+    if (savedHash == null) return false;
+
+    // Băm mã PIN người dùng vừa nhập và so sánh với bản lưu
+    if (_hashPin(inputPin) == savedHash) {
+      _isLocked = false;
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  // 5. Khóa lại App (Khi người dùng nhấn Logout hoặc app chạy ngầm quá lâu)
+  void lock() {
+    _isLocked = true;
     notifyListeners();
   }
 }

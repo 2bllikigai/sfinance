@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; 
 import 'package:provider/provider.dart';
 import '../providers/pin_provider.dart';
-import 'home_screen.dart';
+import '../providers/theme_provider.dart';
+import 'main_screen.dart'; // ✅ Đã đổi từ home_screen sang main_screen
 
 class PinScreen extends StatefulWidget {
   const PinScreen({super.key});
@@ -12,106 +14,173 @@ class PinScreen extends StatefulWidget {
 
 class _PinScreenState extends State<PinScreen> {
   String _inputPin = "";
+  bool _isError = false;
 
-  void _handleKeyPress(String value) {
+  void _handleKeyPress(String value) async {
     if (_inputPin.length < 4) {
+      HapticFeedback.lightImpact(); // Rung nhẹ khi chạm phím
       setState(() {
         _inputPin += value;
+        _isError = false;
       });
     }
 
+    // Khi đã nhập đủ 4 số
     if (_inputPin.length == 4) {
       final pinProvider = Provider.of<PinProvider>(context, listen: false);
       
-      // Nếu chưa có PIN thì cài làm PIN mới, nếu có rồi thì kiểm tra
-      if (pinProvider.savedPin == null) {
-        pinProvider.setPin(_inputPin);
-        _navigateToHome();
-      } else if (_inputPin == pinProvider.savedPin) {
-        _navigateToHome();
+      if (!pinProvider.hasPin) {
+        // THIẾT LẬP PIN LẦN ĐẦU
+        await pinProvider.setPin(_inputPin);
+        _navigateToMain();
       } else {
-        // Sai mã PIN
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Mã PIN không đúng, vui lòng thử lại!'), backgroundColor: Colors.red),
-        );
-        setState(() {
-          _inputPin = "";
-        });
+        // XÁC THỰC PIN
+        bool isValid = await pinProvider.verifyPin(_inputPin);
+        
+        if (isValid) {
+          _navigateToMain();
+        } else {
+          // SAI MÃ PIN
+          HapticFeedback.heavyImpact(); // Rung mạnh báo lỗi
+          setState(() {
+            _isError = true;
+            _inputPin = ""; 
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Mã PIN không chính xác!'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }
 
-  void _navigateToHome() {
-    Provider.of<PinProvider>(context, listen: false).unlock();
+  // ✅ Hàm điều hướng vào trung tâm điều khiển MainScreen
+  void _navigateToMain() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const HomeScreen()),
+      MaterialPageRoute(builder: (context) => const MainScreen()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final pinProvider = Provider.of<PinProvider>(context);
-    bool isFirstTime = pinProvider.savedPin == null;
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    bool isSetupMode = !pinProvider.hasPin;
+
+    final Color primaryColor = isDark ? Colors.greenAccent : const Color(0xFF001A72);
+    final Color textColor = isDark ? Colors.white : Colors.black87;
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF5F7FF),
       body: SafeArea(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lock_outline, size: 80, color: Colors.blue),
-            const SizedBox(height: 20),
+            const Spacer(flex: 2),
+            Icon(Icons.lock_outline_rounded, size: 80, color: primaryColor),
+            const SizedBox(height: 24),
             Text(
-              isFirstTime ? "Thiết lập mã PIN 4 số" : "Nhập mã PIN để tiếp tục",
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              isSetupMode ? "Thiết lập bảo mật" : "Xác thực mã PIN",
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: textColor, fontFamily: 'BeVietnamPro'),
             ),
-            const SizedBox(height: 30),
-            
-            // Hiển thị 4 dấu chấm PIN
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(4, (index) => Container(
-                margin: const EdgeInsets.symmetric(horizontal: 10),
-                width: 20, height: 20,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: index < _inputPin.length ? Colors.blue : Colors.grey[300],
-                ),
-              )),
+            const SizedBox(height: 12),
+            Text(
+              isSetupMode ? "Vui lòng tạo mã PIN 4 số" : "Nhập mã để truy cập SFINANCE",
+              style: TextStyle(color: textColor.withValues(alpha: 0.6), fontFamily: 'BeVietnamPro'),
             ),
-            
             const SizedBox(height: 50),
             
-            // Bàn phím số 
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 60),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3, childAspectRatio: 1.2, crossAxisSpacing: 20, mainAxisSpacing: 20,
-                ),
-                itemCount: 12,
-                itemBuilder: (context, index) {
-                  if (index == 9) return const SizedBox(); // Ô trống
-                  if (index == 10) return _buildKey("0");
-                  if (index == 11) return IconButton(
-                    onPressed: () => setState(() => _inputPin = ""),
-                    icon: const Icon(Icons.backspace_outlined),
-                  );
-                  return _buildKey("${index + 1}");
-                },
+            // Hiển thị 4 dấu chấm (Dots)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(4, (index) {
+                bool isFilled = index < _inputPin.length;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 15),
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _isError 
+                        ? Colors.redAccent 
+                        : (isFilled ? primaryColor : Colors.grey.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: isFilled ? primaryColor : Colors.transparent,
+                    ),
+                  ),
+                );
+              }),
+            ),
+            
+            const Spacer(flex: 2),
+            
+            // Bàn phím số (Numpad)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Column(
+                children: [
+                  for (var row in [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9']])
+                    _buildKeyboardRow(row, textColor),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      const SizedBox(width: 80),
+                      _buildKey("0", textColor),
+                      _buildBackspaceKey(),
+                    ],
+                  ),
+                ],
               ),
             ),
+            const SizedBox(height: 60),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildKey(String text) {
+  Widget _buildKeyboardRow(List<String> keys, Color textColor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: keys.map((key) => _buildKey(key, textColor)).toList(),
+      ),
+    );
+  }
+
+  Widget _buildKey(String text, Color textColor) {
     return InkWell(
       onTap: () => _handleKeyPress(text),
-      borderRadius: BorderRadius.circular(50),
-      child: Center(
-        child: Text(text, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+      borderRadius: BorderRadius.circular(40),
+      child: Container(
+        width: 80,
+        height: 80,
+        alignment: Alignment.center,
+        child: Text(
+          text,
+          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: textColor),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBackspaceKey() {
+    return SizedBox(
+      width: 80,
+      height: 80,
+      child: IconButton(
+        onPressed: () {
+          if (_inputPin.isNotEmpty) {
+            HapticFeedback.selectionClick();
+            setState(() => _inputPin = _inputPin.substring(0, _inputPin.length - 1));
+          }
+        },
+        icon: const Icon(Icons.backspace_outlined, color: Colors.redAccent, size: 28),
       ),
     );
   }
