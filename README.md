@@ -8,7 +8,7 @@
 *(Sau khi đẩy code lên, Trường hãy chụp ảnh app và lưu vào thư mục `screenshots/` rồi thay link vào đây)*
 | Dashboard 6 Chỉ số | Phân tích Biểu đồ | Bộ lọc Nâng cao |
 | :---: | :---: | :---: |
-| ![Home](https://via.placeholder.com/200x400?text=Dashboard) | ![Statistics](https://via.placeholder.com/200x400?text=Pie+Chart) | ![Filter](https://via.placeholder.com/200x400?text=Advanced+Filter) |
+| ![Home](Sfinance/Home6.png) | ![Statistics](Sfinance/statics.png) | ![Filter](Sfinance/filter.png) |
 
 ---
 
